@@ -24,6 +24,7 @@ class ChromaService:
         self._client = None
         self._collection = None
         # In-memory document catalog fallback
+        
         self._doc_registry: Dict[str, Dict[str, Any]] = {}
         self._chunks_cache: Dict[str, ProcessedChunk] = {}
 
