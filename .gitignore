@@ -1,0 +1,64 @@
+# Operating System Files
+.DS_Store
+Thumbs.db
+desktop.ini
+*.tmp
+
+# Environment and Secret Files
+.env
+.env.*
+!.env.example
+*.secret
+*.key
+*.pem
+*.p12
+
+# Database dumps & logs
+*.sql
+*.dump
+*.db
+*.sqlite
+*.sqlite3
+*.log
+
+# Node / React Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/dist-ssr/
+frontend/.npm/
+frontend/*.tsbuildinfo
+
+# Java / Spring Boot Backend
+backend/target/
+backend/.mvn/
+backend/*.jar
+backend/*.war
+backend/.classpath
+backend/.project
+backend/.settings/
+
+# Python / FastAPI AI Service
+ai-service/__pycache__/
+ai-service/*/__pycache__/
+ai-service/*/*/__pycache__/
+ai-service/*/*/*/__pycache__/
+ai-service/.venv/
+ai-service/venv/
+ai-service/env/
+ai-service/*.pyc
+ai-service/*.pyo
+ai-service/.pytest_cache/
+ai-service/.coverage
+ai-service/htmlcov/
+ai-service/.deepeval/
+ai-service/chroma_db/
+ai-service/.chroma/
+ai-service/data/
+
+# IDE & Editor Configuration
+.idea/
+.vscode/
+*.swp
+*.swo
+.agents/
+.gemini/

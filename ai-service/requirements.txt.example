@@ -1,0 +1,24 @@
+# FastAPI & ASGI Web Server
+fastapi>=0.111.0,<0.116.0
+uvicorn[standard]>=0.30.0
+pydantic>=2.7.0,<3.0.0
+pydantic-settings>=2.3.0
+python-dotenv>=1.0.1
+requests>=2.32.0
+
+# LangChain & LangGraph Ecosystem
+langchain>=0.2.0,<0.4.0
+langchain-core>=0.2.0,<0.4.0
+langchain-google-genai>=1.0.0,<3.0.0
+langgraph>=0.1.0,<0.3.0
+
+# AI Guardrails
+guardrails-ai>=0.5.0
+
+# Evaluation Framework
+deepeval>=1.0.0
+
+# Observability & Tracing (OpenTelemetry)
+opentelemetry-api>=1.25.0
+opentelemetry-sdk>=1.25.0
+opentelemetry-instrumentation-fastapi>=0.46b0

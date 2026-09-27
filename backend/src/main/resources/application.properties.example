@@ -1,0 +1,32 @@
+# ==============================================================================
+# SentinelAI - Spring Boot Application Configuration Example
+# Copy to application.properties and customize for local environment
+# ==============================================================================
+
+# Application & Server Details
+spring.application.name=sentinelai-backend
+server.port=8080
+
+# Database Configuration (MySQL 8.x)
+# REQUIRED: Update credentials for your local MySQL instance
+spring.datasource.url=jdbc:mysql://localhost:3306/sentinelai_db?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+spring.datasource.username=root
+spring.datasource.password=your_mysql_password_here
+spring.datasource.driver-class-name=com.mysql.cj.jdbc.Driver
+
+# JPA & Hibernate Settings
+spring.jpa.hibernate.ddl-auto=update
+spring.jpa.show-sql=false
+spring.jpa.properties.hibernate.format_sql=true
+spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.MySQLDialect
+
+# JWT Security Configuration
+# REQUIRED: 256-bit secret key for signing tokens
+sentinelai.jwt.secret=your_jwt_secret_key_at_least_32_characters_long_super_secure!
+sentinelai.jwt.expiration-ms=86400000
+
+# AI Microservice Client Configuration (FastAPI)
+# REQUIRED: FastAPI URL and shared service token
+sentinelai.ai-service.base-url=http://localhost:8000/api/v1
+sentinelai.ai-service.internal-token=your_shared_internal_service_secret_token_12345
+sentinelai.ai-service.timeout-seconds=60
