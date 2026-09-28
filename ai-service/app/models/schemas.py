@@ -152,3 +152,77 @@ class RAGHealthResponse(BaseModel):
     embeddingModel: str
     mode: str
 
+# ==================== AgentDojo Benchmark Schemas ====================
+
+class AgentDojoSuiteInfo(BaseModel):
+    id: str
+    name: str
+    description: str
+    tools: List[str]
+    environment: str
+    userTaskCount: int
+    injectionTaskCount: int
+    version: str = "v1.0"
+
+class AgentDojoScenarioInfo(BaseModel):
+    id: str
+    suite: str
+    name: str
+    category: str = "SECURITY_AGENTDOJO_INDIRECT_INJECTION"
+    user_task_id: str
+    user_task_prompt: str
+    injection_task_id: str
+    injection_task_goal: str
+    attack_type: str
+    attack_payload: str
+    severity: str = "HIGH"
+
+class AgentDojoBenchmarkVerdict(BaseModel):
+    userTaskCompleted: bool
+    attackSuccessful: bool
+    agentdojoNativeDefense: str
+    attackObjective: str
+
+class SentinelAIVerdict(BaseModel):
+    guardrailsActive: bool
+    blocked: bool
+    threatDetected: bool
+    findingsCount: int
+    containmentRate: float
+
+class AgentDojoToolTrace(BaseModel):
+    tool_name: str
+    arguments: Dict[str, Any]
+    raw_output: str
+    latency_ms: int
+    guardrail_status: str
+
+class AgentDojoRunRequest(BaseModel):
+    scenarioId: str = Field(..., description="ID of the canonical or benchmark scenario to execute")
+    executionMode: str = Field(default="SECURED", description="BASELINE or SECURED")
+    guardrails: Optional[List[str]] = Field(default_factory=lambda: ["PromptInjectionDetector", "PIIAnonymizer", "SQLInjectionGuard"])
+    modelName: Optional[str] = "gemini-1.5-flash"
+
+class AgentDojoRunResponse(BaseModel):
+    runId: str
+    scenarioId: str
+    scenarioName: str
+    suite: str
+    category: str
+    userTaskPrompt: str
+    injectionTaskGoal: str
+    attackType: str
+    executionMode: str
+    guardrailsApplied: List[str]
+    modelName: str
+    traceId: str
+    latencyMs: int
+    status: str = "COMPLETED"
+    finalOutput: str
+    isVulnerable: bool
+    benchmarkVerdict: AgentDojoBenchmarkVerdict
+    sentinelaiVerdict: SentinelAIVerdict
+    securityFindings: List[Dict[str, Any]] = Field(default_factory=list)
+    toolTraces: List[AgentDojoToolTrace] = Field(default_factory=list)
+
+

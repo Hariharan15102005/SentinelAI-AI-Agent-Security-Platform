@@ -3,11 +3,13 @@ package com.sentinelai.service;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -50,6 +52,65 @@ public class AIServiceClient {
                     .body(Map.class);
         } catch (Exception ex) {
             logger.warn("AI Microservice communication not reachable (expected before Phase 4): {}", ex.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Fetches metadata for all available AgentDojo suites.
+     */
+    public List<Map<String, Object>> getAgentDojoSuites() {
+        try {
+            logger.info("Fetching AgentDojo suites from AI microservice");
+            return restClient.get()
+                    .uri("/agentdojo/suites")
+                    .retrieve()
+                    .body(new ParameterizedTypeReference<List<Map<String, Object>>>() {});
+        } catch (Exception ex) {
+            logger.warn("Could not retrieve AgentDojo suites from AI microservice: {}", ex.getMessage());
+            return List.of();
+        }
+    }
+
+    /**
+     * Fetches scenarios for a given suite (or all suites if null).
+     */
+    public List<Map<String, Object>> getAgentDojoScenarios(String suite) {
+        try {
+            String uri = (suite != null && !suite.isBlank())
+                    ? "/agentdojo/scenarios?suite=" + suite
+                    : "/agentdojo/scenarios";
+            logger.info("Fetching AgentDojo scenarios from AI microservice with uri: {}", uri);
+            return restClient.get()
+                    .uri(uri)
+                    .retrieve()
+                    .body(new ParameterizedTypeReference<List<Map<String, Object>>>() {});
+        } catch (Exception ex) {
+            logger.warn("Could not retrieve AgentDojo scenarios from AI microservice: {}", ex.getMessage());
+            return List.of();
+        }
+    }
+
+    /**
+     * Executes an AgentDojo scenario benchmark run against the AI microservice.
+     */
+    public Map<String, Object> executeAgentDojoRun(Map<String, Object> payload) {
+        try {
+            String traceId = UUID.randomUUID().toString().replace("-", "");
+            String spanId = UUID.randomUUID().toString().replace("-", "").substring(0, 16);
+            String traceparent = String.format("00-%s-%s-01", traceId, spanId);
+
+            logger.info("Dispatching AgentDojo benchmark execution to AI microservice: scenarioId={}, traceId={}",
+                    payload.get("scenarioId"), traceId);
+            return restClient.post()
+                    .uri("/agentdojo/run")
+                    .header("traceparent", traceparent)
+                    .header("X-Trace-Id", traceId)
+                    .body(payload)
+                    .retrieve()
+                    .body(Map.class);
+        } catch (Exception ex) {
+            logger.warn("Could not execute AgentDojo benchmark on AI microservice: {}", ex.getMessage());
             return null;
         }
     }

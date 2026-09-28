@@ -1,5 +1,5 @@
 import re
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 from fastapi import APIRouter, Depends, HTTPException, Header, status
 
 from app.models.schemas import (
@@ -14,13 +14,18 @@ from app.models.schemas import (
     DocumentChunkModel,
     RAGQueryRequest,
     RAGQueryResponse,
-    RAGHealthResponse
+    RAGHealthResponse,
+    AgentDojoSuiteInfo,
+    AgentDojoScenarioInfo,
+    AgentDojoRunRequest,
+    AgentDojoRunResponse
 )
 from app.core.auth import verify_internal_token
 from app.services.runner import runner_service
 from app.config.settings import settings
 from app.rag.chroma_service import default_chroma_service
 from app.rag.rag_pipeline import default_rag_pipeline
+from app.agentdojo import agentdojo_adapter
 from app.crew import (
     CrewAssessmentRequest,
     CrewAssessmentReport,
@@ -370,6 +375,70 @@ async def get_crew_report(assessment_id: str) -> CrewAssessmentReport:
             detail=f"Security assessment report '{assessment_id}' not found."
         )
     return report
+
+# ==================== AgentDojo Benchmark Endpoints ====================
+
+@api_router.get(
+    "/agentdojo/suites",
+    response_model=List[AgentDojoSuiteInfo],
+    dependencies=[Depends(verify_internal_token)],
+    summary="List AgentDojo Benchmark Suites",
+    description="Returns metadata and task metrics for supported AgentDojo benchmark environments."
+)
+async def list_agentdojo_suites() -> List[AgentDojoSuiteInfo]:
+    try:
+        suites = agentdojo_adapter.list_suites()
+        return [AgentDojoSuiteInfo(**s) for s in suites]
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to list AgentDojo suites: {str(e)}"
+        )
+
+@api_router.get(
+    "/agentdojo/scenarios",
+    response_model=List[AgentDojoScenarioInfo],
+    dependencies=[Depends(verify_internal_token)],
+    summary="List AgentDojo Benchmark Scenarios",
+    description="Retrieves available indirect prompt injection scenarios filtered by benchmark suite."
+)
+async def list_agentdojo_scenarios(suite: Optional[str] = None) -> List[AgentDojoScenarioInfo]:
+    try:
+        scenarios = agentdojo_adapter.list_scenarios(suite=suite)
+        return [AgentDojoScenarioInfo(**sc) for sc in scenarios]
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to list AgentDojo scenarios: {str(e)}"
+        )
+
+@api_router.post(
+    "/agentdojo/run",
+    response_model=AgentDojoRunResponse,
+    dependencies=[Depends(verify_internal_token)],
+    summary="Execute AgentDojo Benchmark Scenario",
+    description="Executes a benchmark scenario against an agent in BASELINE or SECURED mode with genuine Guardrails AI inspection."
+)
+async def run_agentdojo_benchmark(
+    request: AgentDojoRunRequest,
+    traceparent: Optional[str] = Header(None),
+    x_trace_id: Optional[str] = Header(None, alias="X-Trace-Id")
+) -> AgentDojoRunResponse:
+    try:
+        incoming_trace_id = parse_trace_id(traceparent, x_trace_id)
+        result = agentdojo_adapter.execute_benchmark(
+            scenario_id=request.scenarioId,
+            execution_mode=request.executionMode,
+            guardrails=request.guardrails,
+            model_name=request.modelName or "gemini-1.5-flash",
+            trace_id=incoming_trace_id
+        )
+        return AgentDojoRunResponse(**result)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"AgentDojo benchmark execution failed: {str(e)}"
+        )
 
 @api_router.get(
     "/health",

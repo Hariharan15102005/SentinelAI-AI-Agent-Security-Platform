@@ -205,7 +205,7 @@ class ApiService {
   async getTestCases(projectId) {
     if (!projectId) return [];
     try {
-      const data = await this.request(`/test-cases?projectId=${projectId}`);
+      const data = await this.request(`/projects/${projectId}/test-cases`);
       return Array.isArray(data) ? data : [];
     } catch (e) {
       console.error(`Failed to load test cases for project ${projectId}`, e);
@@ -214,14 +214,21 @@ class ApiService {
   }
 
   async createTestCase(testCaseData) {
-    return await this.request('/test-cases', {
+    const { projectId, ...payload } = testCaseData;
+    if (!projectId) {
+      throw new Error('Project ID is required to create a test scenario');
+    }
+    return await this.request(`/projects/${projectId}/test-cases`, {
       method: 'POST',
-      body: JSON.stringify(testCaseData)
+      body: JSON.stringify(payload)
     });
   }
 
-  async deleteTestCase(id) {
-    return await this.request(`/test-cases/${id}`, {
+  async deleteTestCase(id, projectId) {
+    if (!projectId) {
+      return await this.request(`/test-cases/${id}`, { method: 'DELETE' });
+    }
+    return await this.request(`/projects/${projectId}/test-cases/${id}`, {
       method: 'DELETE'
     });
   }
@@ -416,6 +423,40 @@ class ApiService {
       console.error(`Failed to load dashboard summary for project ${projectId}`, e);
     }
     return null;
+  }
+
+  // --- AgentDojo Benchmark Suite ---
+  async getAgentDojoSuites() {
+    try {
+      const data = await this.request('/agentdojo/suites');
+      return Array.isArray(data) ? data : [];
+    } catch (e) {
+      console.error('Failed to load AgentDojo suites', e);
+      return [];
+    }
+  }
+
+  async getAgentDojoScenarios(suite) {
+    try {
+      const uri = suite && suite !== 'ALL' ? `/agentdojo/scenarios?suite=${suite}` : '/agentdojo/scenarios';
+      const data = await this.request(uri);
+      return Array.isArray(data) ? data : [];
+    } catch (e) {
+      console.error(`Failed to load AgentDojo scenarios for suite ${suite}`, e);
+      return [];
+    }
+  }
+
+  async runAgentDojoBenchmark(payload) {
+    try {
+      return await this.request('/agentdojo/run', {
+        method: 'POST',
+        body: JSON.stringify(payload)
+      });
+    } catch (e) {
+      console.error('Failed to execute AgentDojo benchmark run', e);
+      throw e;
+    }
   }
 }
 

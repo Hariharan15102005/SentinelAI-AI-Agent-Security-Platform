@@ -12,7 +12,10 @@ import {
   Zap,
   Plus,
   Info,
-  FolderGit2
+  FolderGit2,
+  CheckCircle2,
+  XCircle,
+  AlertCircle
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import apiService from '../services/apiService';
@@ -48,6 +51,9 @@ export const TestStudio = () => {
   const [newExpected, setNewExpected] = useState('');
   const [newSeverity, setNewSeverity] = useState('HIGH');
   const [creatingTC, setCreatingTC] = useState(false);
+  const [saveError, setSaveError] = useState(null);
+  const [saveSuccess, setSaveSuccess] = useState(null);
+  const [formSubmitted, setFormSubmitted] = useState(false);
 
   const availableGuardrails = [
     { id: 'PromptInjectionDetector', name: 'Prompt Injection Detector', desc: 'Blocks directive override and jailbreak syntax' },
@@ -56,7 +62,7 @@ export const TestStudio = () => {
     { id: 'ToxicityFilter', name: 'Toxic Output Filter', desc: 'Intercepts offensive, biased, or harmful responses' }
   ];
 
-  const fetchTests = async () => {
+  const fetchTests = async (newlyCreatedId = null) => {
     if (!activeProject) {
       setLoading(false);
       return;
@@ -64,11 +70,12 @@ export const TestStudio = () => {
     try {
       setLoading(true);
       const data = await apiService.getTestCases(activeProject.id);
-      setTestCases(data || []);
-      if (data && data.length > 0) {
-        setSelectedTests([data[0].id]);
-      } else {
-        setSelectedTests([]);
+      const tests = Array.isArray(data) ? data : [];
+      setTestCases(tests);
+      if (newlyCreatedId) {
+        setSelectedTests([newlyCreatedId]);
+      } else if (tests.length > 0 && selectedTests.length === 0) {
+        setSelectedTests([tests[0].id]);
       }
     } catch (err) {
       console.error('Failed to load test cases', err);
@@ -107,28 +114,57 @@ export const TestStudio = () => {
     }
   };
 
+  const openCreateModal = () => {
+    setNewTitle('');
+    setNewPrompt('');
+    setNewExpected('');
+    setNewCategory('SECURITY_PROMPT_INJECTION');
+    setNewSeverity('HIGH');
+    setSaveError(null);
+    setFormSubmitted(false);
+    setIsModalOpen(true);
+  };
+
   const handleCreateTestCase = async (e) => {
     e.preventDefault();
-    if (!newTitle.trim() || !newPrompt.trim() || !activeProject) return;
+    setFormSubmitted(true);
+    setSaveError(null);
+
+    if (!newTitle.trim() || !newPrompt.trim()) {
+      setSaveError('Please fill in all required fields (Scenario Title and Input Prompt).');
+      return;
+    }
+
+    if (!activeProject) {
+      setSaveError('No active project selected. Please select a project first.');
+      return;
+    }
 
     setCreatingTC(true);
     try {
-      await apiService.createTestCase({
+      const created = await apiService.createTestCase({
         projectId: activeProject.id,
-        title: newTitle,
+        title: newTitle.trim(),
         category: newCategory,
-        inputPrompt: newPrompt,
-        expectedBehavior: newExpected || 'Agent maintains safe boundaries',
+        inputPrompt: newPrompt.trim(),
+        expectedBehavior: newExpected.trim() || 'Agent maintains safe boundaries',
         severity: newSeverity,
         contextDocuments: []
       });
+
+      setSaveSuccess(`Scenario "${newTitle.trim()}" created successfully!`);
+      setTimeout(() => setSaveSuccess(null), 5000);
+
       setIsModalOpen(false);
       setNewTitle('');
       setNewPrompt('');
       setNewExpected('');
-      await fetchTests();
+      setFormSubmitted(false);
+
+      await fetchTests(created?.id);
     } catch (err) {
       console.error('Failed to create test case', err);
+      setSaveError(err.message || 'Failed to save test scenario. Please check backend connection.');
     } finally {
       setCreatingTC(false);
     }
@@ -182,7 +218,7 @@ export const TestStudio = () => {
     );
   }
 
-  if (loading) {
+  if (loading && testCases.length === 0) {
     return <LoadingSpinner message="Loading test suites and guardrail policies..." />;
   }
 
@@ -195,11 +231,30 @@ export const TestStudio = () => {
             Configure attack scenarios, select security guardrails, and execute agent runs for <strong className="text-cyan">{activeProject?.name}</strong>
           </p>
         </div>
-        <button className="btn btn-primary" onClick={() => setIsModalOpen(true)}>
+        <button className="btn btn-primary" onClick={openCreateModal}>
           <Plus size={16} />
           Add Test Scenario
         </button>
       </div>
+
+      {/* Global Success Notification */}
+      {saveSuccess && (
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.75rem',
+          padding: '0.85rem 1.25rem',
+          background: 'rgba(16, 185, 129, 0.15)',
+          border: '1px solid #10b981',
+          borderRadius: '8px',
+          color: '#a7f3d0',
+          marginBottom: '1.25rem',
+          fontSize: '0.88rem'
+        }}>
+          <CheckCircle2 size={18} color="#10b981" />
+          <span>{saveSuccess}</span>
+        </div>
+      )}
 
       <div className="studio-layout">
         {/* Left Column: Test Cases Browser */}
@@ -217,13 +272,20 @@ export const TestStudio = () => {
           >
             {/* Category Filter Pills */}
             <div className="filter-pills">
-              {['ALL', 'SECURITY_PROMPT_INJECTION', 'SECURITY_JAILBREAK', 'RELIABILITY_HALLUCINATION', 'RELIABILITY_RELEVANCE'].map((cat) => (
+              {[
+                { id: 'ALL', label: 'All' },
+                { id: 'SECURITY_PROMPT_INJECTION', label: 'Prompt Injection' },
+                { id: 'SECURITY_JAILBREAK', label: 'Jailbreak' },
+                { id: 'SECURITY_AGENTDOJO_INDIRECT_INJECTION', label: 'Indirect Injection' },
+                { id: 'RELIABILITY_HALLUCINATION', label: 'Hallucination' },
+                { id: 'RELIABILITY_RELEVANCE', label: 'Relevance' }
+              ].map((cat) => (
                 <button
-                  key={cat}
-                  className={`filter-pill ${selectedCategory === cat ? 'active' : ''}`}
-                  onClick={() => setSelectedCategory(cat)}
+                  key={cat.id}
+                  className={`filter-pill ${selectedCategory === cat.id ? 'active' : ''}`}
+                  onClick={() => setSelectedCategory(cat.id)}
                 >
-                  {cat.replace('SECURITY_', '').replace('RELIABILITY_', '').replace('_', ' ')}
+                  {cat.label}
                 </button>
               ))}
             </div>
@@ -234,7 +296,7 @@ export const TestStudio = () => {
                 title="No Test Scenarios Found"
                 description="Create a test scenario with an attack prompt or evaluation query to execute against your agent."
                 action={
-                  <button className="btn btn-primary btn-sm" onClick={() => setIsModalOpen(true)}>
+                  <button className="btn btn-primary btn-sm" onClick={openCreateModal}>
                     <Plus size={14} /> Add Scenario
                   </button>
                 }
@@ -382,16 +444,41 @@ export const TestStudio = () => {
       {/* Create Test Case Modal */}
       <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Add Test Scenario">
         <form onSubmit={handleCreateTestCase}>
+          {saveError && (
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              padding: '0.75rem 1rem',
+              background: 'rgba(239, 68, 68, 0.15)',
+              border: '1px solid #ef4444',
+              borderRadius: '6px',
+              color: '#fca5a5',
+              marginBottom: '1rem',
+              fontSize: '0.82rem'
+            }}>
+              <AlertCircle size={16} color="#ef4444" />
+              <span>{saveError}</span>
+            </div>
+          )}
+
           <div className="form-group">
             <label className="form-label">Scenario Title *</label>
             <input
               type="text"
               className="form-input"
               placeholder="e.g. Prompt Extraction Attack"
-              required
               value={newTitle}
               onChange={(e) => setNewTitle(e.target.value)}
+              style={{
+                borderColor: formSubmitted && !newTitle.trim() ? '#ef4444' : undefined
+              }}
             />
+            {formSubmitted && !newTitle.trim() && (
+              <span style={{ fontSize: '0.72rem', color: '#ef4444', marginTop: '4px', display: 'block' }}>
+                Scenario title is required.
+              </span>
+            )}
           </div>
 
           <div className="form-group">
@@ -403,6 +490,7 @@ export const TestStudio = () => {
             >
               <option value="SECURITY_PROMPT_INJECTION">Security: Prompt Injection</option>
               <option value="SECURITY_JAILBREAK">Security: Jailbreak</option>
+              <option value="SECURITY_AGENTDOJO_INDIRECT_INJECTION">Security: Indirect Prompt Injection (AgentDojo)</option>
               <option value="RELIABILITY_HALLUCINATION">Reliability: Hallucination Benchmark</option>
               <option value="RELIABILITY_RELEVANCE">Reliability: Answer Relevancy</option>
             </select>
@@ -427,10 +515,18 @@ export const TestStudio = () => {
             <textarea
               className="form-textarea"
               placeholder="Enter the attack payload prompt to test against the agent..."
-              required
+              rows={4}
               value={newPrompt}
               onChange={(e) => setNewPrompt(e.target.value)}
+              style={{
+                borderColor: formSubmitted && !newPrompt.trim() ? '#ef4444' : undefined
+              }}
             />
+            {formSubmitted && !newPrompt.trim() && (
+              <span style={{ fontSize: '0.72rem', color: '#ef4444', marginTop: '4px', display: 'block' }}>
+                Input attack prompt is required.
+              </span>
+            )}
           </div>
 
           <div className="form-group">
@@ -438,6 +534,7 @@ export const TestStudio = () => {
             <textarea
               className="form-textarea"
               placeholder="e.g. Agent must refuse unauthorized command and maintain safety guardrails."
+              rows={2}
               value={newExpected}
               onChange={(e) => setNewExpected(e.target.value)}
             />
@@ -447,8 +544,20 @@ export const TestStudio = () => {
             <button type="button" className="btn btn-secondary" onClick={() => setIsModalOpen(false)}>
               Cancel
             </button>
-            <button type="submit" className="btn btn-primary" disabled={creatingTC || !newTitle.trim() || !newPrompt.trim()}>
-              {creatingTC ? 'Adding...' : 'Save Scenario'}
+            <button
+              type="submit"
+              className="btn btn-primary"
+              disabled={creatingTC}
+              style={{ minWidth: '130px', justifyContent: 'center' }}
+            >
+              {creatingTC ? (
+                <>
+                  <LoadingSpinner size="small" />
+                  <span style={{ marginLeft: '6px' }}>Saving...</span>
+                </>
+              ) : (
+                'Save Scenario'
+              )}
             </button>
           </div>
         </form>

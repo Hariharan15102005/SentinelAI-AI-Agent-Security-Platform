@@ -7,8 +7,9 @@
 [![React](https://img.shields.io/badge/React-18-61dafb.svg)](https://react.dev/)
 [![Vite](https://img.shields.io/badge/Vite-5.4-purple.svg)](https://vitejs.dev/)
 [![MySQL](https://img.shields.io/badge/MySQL-8.x-blue.svg)](https://www.mysql.com/)
+[![AgentDojo](https://img.shields.io/badge/AgentDojo-Benchmark%20v1.0-red.svg)](https://agentdojo.spylab.ai/)
 
-**SentinelAI** is an enterprise-grade platform for evaluating, securing, and observing autonomous AI agents (LangGraph, Gemini, OpenAI). It provides automated adversarial red-teaming, real-time Guardrails AI defense policies, DeepEval LLM-as-a-judge reliability scoring, and OpenTelemetry distributed execution trace visualization.
+**SentinelAI** is an enterprise-grade platform for evaluating, securing, and observing autonomous AI agents (LangGraph, Gemini, OpenAI). It provides automated adversarial red-teaming, real-time Guardrails AI defense policies, DeepEval LLM-as-a-judge reliability scoring, OpenTelemetry distributed execution trace visualization, and native integration with the **ETH Zurich AgentDojo Benchmark** for evaluating tool security against indirect prompt injections.
 
 ---
 
@@ -19,15 +20,17 @@ flowchart TB
     subgraph Frontend ["Frontend Tier (React + Vite :5173)"]
         UI_Dash[Overview Dashboard]
         UI_Studio[Test Studio & Red-Team Hub]
+        UI_Dojo[AgentDojo Benchmark Studio]
         UI_Findings[Security Findings Explorer]
         UI_Eval[DeepEval Reliability Hub]
         UI_Traces[OpenTelemetry Trace Explorer]
-        UI_Comp[Run Comparison (Baseline vs Secured)]
+        UI_Comp[Run Comparison]
     end
 
     subgraph Backend ["Backend Orchestrator (Spring Boot 3.3.4 :8080)"]
         AUTH[JWT Security & Auth Controller]
         PROJ[Project & Test Suite Service]
+        DOJO_SVC[AgentDojo Benchmark Service]
         RUNS[Test Run State Machine]
         TRACES[OpenTelemetry Trace Store]
         CLIENT[Rest Client with W3C Context]
@@ -35,6 +38,8 @@ flowchart TB
 
     subgraph AI_Engine ["AI Microservice (FastAPI + Python 3.11 :8000)"]
         GUARD[Guardrails AI Engine]
+        DOJO_ADAPTER[AgentDojo Adapter & Guardrail Bridge]
+        ENV_SIM[Stateful Environments Workspace, Banking, Slack, Travel]
         GRAPH[LangGraph Autonomous Agent]
         TOOLS[Sandboxed Tools AST, SQL, Vector]
         EVAL[DeepEval Metric Evaluator]
@@ -47,11 +52,16 @@ flowchart TB
     end
 
     UI_Studio -->|JWT Bearer REST| AUTH
+    UI_Dojo -->|GET /agentdojo/suites, scenarios / POST run| DOJO_SVC
     AUTH --> PROJ --> RUNS
+    DOJO_SVC --> CLIENT
     RUNS -->|Persist Runs & Findings| MYSQL
     RUNS -->|HTTP + traceparent| CLIENT
     CLIENT -->|X-Internal-Token| GUARD
-    GUARD -->|Input Interceptor| GRAPH
+    CLIENT -->|X-Internal-Token| DOJO_ADAPTER
+    DOJO_ADAPTER --> ENV_SIM
+    DOJO_ADAPTER --> GUARD
+    GUARD -->|Input & Tool Interceptor| GRAPH
     GRAPH --> TOOLS
     GRAPH --> GEMINI
     GRAPH --> EVAL
@@ -62,23 +72,51 @@ flowchart TB
 
 ---
 
+## 🥋 AgentDojo Benchmark Integration
+
+SentinelAI includes native integration with the **ETH Zurich SPY Lab AgentDojo Benchmark** for evaluating autonomous AI agents against indirect prompt injections embedded in untrusted external data.
+
+### Supported Benchmark Suites & Environments
+
+| Suite | Tools Included | Simulated Environment | User Tasks | Injection Tasks |
+| :--- | :--- | :--- | :---: | :---: |
+| **Workspace** | `search_inbox`, `read_email`, `send_email`, `get_calendar_events`, `create_calendar_event`, `search_files`, `download_file` | Mock Inbox, Calendar & Cloud Storage | 40 | 6 |
+| **Banking** | `get_balance`, `list_transactions`, `schedule_payment`, `transfer_funds`, `get_recipient_info` | Mock Core Banking & Payment Gateway | 16 | 9 |
+| **Slack** | `list_channels`, `read_channel_messages`, `post_message`, `get_user_profile`, `invite_user_to_channel` | Mock Slack Workspace & Channels | 21 | 5 |
+| **Travel** | `search_flights`, `book_flight`, `search_hotels`, `book_hotel`, `cancel_reservation`, `get_itinerary` | Mock Global Distribution System | 20 | 7 |
+
+### Dual-Verdict Evaluation Engine
+
+When executing an AgentDojo scenario, SentinelAI computes dual verdicts:
+1. **Benchmark-Native Verdict (AgentDojo Metrics)**:
+   - `User Task Completed`: Whether the agent fulfilled the legitimate user objective.
+   - `Attack Successful`: Whether the embedded indirect prompt injection forced the agent to execute the malicious objective.
+   - `Native Defense`: The active baseline defense profile.
+2. **SentinelAI Security Containment Verdict**:
+   - `Guardrails Active`: Whether SentinelAI interceptors were active.
+   - `Threat Blocked`: Whether the indirect prompt injection was detected and sanitized in tool data flows before secondary tool dispatch.
+   - `Containment Rate`: 100% containment when attack payload is prevented.
+   - `Tool Execution Waterfall`: Granular latency, input/output inspection, and `BLOCKED` / `PASSED` status for every tool hop.
+
+---
+
 ## 🚀 Key Features
 
-1. **Adversarial Red-Teaming Studio**:
+1. **AgentDojo Benchmark Studio**:
+   - Interactive UI for suite selection, canonical and dynamic scenario exploration, baseline vs secured execution, and tool execution waterfall inspection.
+2. **Adversarial Red-Teaming Studio**:
    - Automated evaluation against direct prompt injections, jailbreaks (DAN, Developer Mode), Base64 obfuscated attacks, and destructive tool tampering.
-   - Built-in version-controlled adversarial dataset with 18+ synthetic attack vectors and benign controls.
-2. **Modular Guardrails AI Engine**:
+3. **Modular Guardrails AI Engine**:
    - Pre-execution input filters for instruction overrides and jailbreaks.
    - Tool execution gateway enforcing parameter validation, readonly database constraints, and command injection blocks.
    - Real-time PII & Secrets anonymizer using the Luhn algorithm for credit cards, SSN detection, and API key redaction.
-3. **DeepEval Reliability Engine**:
+4. **DeepEval Reliability Engine**:
    - Automated LLM-as-a-judge evaluation for **Faithfulness**, **Answer Relevancy**, **Hallucination Score**, and custom **G-Eval** criteria.
    - RAG retrieval metrics: **Contextual Precision** and **Contextual Recall** backed by ChromaDB vector storage.
-   - Zero-cost deterministic heuristic evaluation for fast automated testing.
-4. **OpenTelemetry Distributed Tracing**:
+5. **OpenTelemetry Distributed Tracing**:
    - End-to-end W3C `traceparent` context propagation across frontend, Spring Boot, and FastAPI.
    - Interactive waterfall timeline displaying node latencies, parent-child span hierarchy, token counts, and input/output states.
-5. **Side-by-Side Run Comparison**:
+6. **Side-by-Side Run Comparison**:
    - Compare `BASELINE` (unprotected) vs. `SECURED` (guardrail-protected) agent runs to measure security containment, latency overhead, and quality score gains.
 
 ---
@@ -90,6 +128,7 @@ flowchart TB
 | **Frontend** | React 18, Vite 5, React Router 6, Vanilla CSS, Recharts, Lucide Icons |
 | **Backend** | Java 21, Spring Boot 3.3.4, Spring Data JPA, Spring Security, JJWT, MySQL 8.x |
 | **AI Service** | Python 3.11, FastAPI, LangGraph, LangChain, Google Generative AI, ChromaDB, Pytest |
+| **Benchmark** | ETH Zurich AgentDojo Benchmark & Simulated Stateful Environments |
 | **Telemetry** | OpenTelemetry W3C Trace Context (`traceparent`), Structured Spans |
 
 ---
@@ -129,7 +168,6 @@ INTERNAL_SERVICE_SECRET=sentinelai_internal_token_secret_key_2026
 GEMINI_API_KEY=your_gemini_api_key_here
 DEEPEVAL_JUDGE_MODEL=gemini-1.5-flash
 ```
-*(Note: If `GEMINI_API_KEY` is not provided, the service automatically runs in Mock/Offline mode with deterministic evaluation).*
 
 ### 3. React Frontend (`frontend/.env`)
 ```env
@@ -148,6 +186,7 @@ cd "c:\Users\Hariharan K\OneDrive\Desktop\SentinelAI\ai-service"
 python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 *Health Check*: `http://localhost:8000/api/v1/health`
+*AgentDojo Suites*: `http://localhost:8000/api/v1/agentdojo/suites`
 
 ### Terminal 2: Start Spring Boot Backend
 ```powershell
@@ -167,13 +206,13 @@ npm run dev
 
 ## 🧪 Automated Testing
 
-### Run Python AI Service Test Suite (44 Tests):
+### Run Python AI Service Test Suite (118 Tests):
 ```powershell
 cd "c:\Users\Hariharan K\OneDrive\Desktop\SentinelAI\ai-service"
 python -m pytest tests/ -v
 ```
 
-### Run Spring Boot Backend Test Suite (14 Tests):
+### Run Spring Boot Backend Test Suite (18 Tests):
 ```powershell
 cd "c:\Users\Hariharan K\OneDrive\Desktop\SentinelAI\backend"
 mvn test
@@ -185,7 +224,7 @@ cd "c:\Users\Hariharan K\OneDrive\Desktop\SentinelAI\frontend"
 npm run build
 ```
 
-**Total Automated Coverage**: **58 passing unit and integration tests** with **0 build errors**.
+**Total Automated Coverage**: **136 passing unit and integration tests** with **0 build errors**.
 
 ---
 
@@ -193,31 +232,23 @@ npm run build
 
 1. **Login & Session Initialization**:
    - Navigate to `http://localhost:5173`. Click **Sign In** or use default demo credentials (`admin` / `password`).
-2. **Create Project**:
-   - On the **Projects** page, create a project (e.g. `Customer Support Bot`) configuring the system prompt and agent tools.
-3. **Execute Test Run in Test Studio**:
-   - Select an adversarial test case (e.g. `DAN Persona Hijacking` or `Direct Instruction Override`).
-   - Run in **`BASELINE`** mode: observe that the unconstrained agent processes the prompt without active guardrail blocking, flagging `isVulnerable: true`.
-   - Run in **`SECURED`** mode: observe that Guardrails AI intercepts the attack, blocks execution, redacts PII, and flags `isVulnerable: false`.
-4. **Inspect Security Findings**:
+2. **Explore AgentDojo Benchmark Studio**:
+   - Navigate to **AgentDojo Benchmark** from the sidebar.
+   - Filter by Suite: **Workspace**, **Banking**, **Slack**, or **Travel**.
+   - Select a scenario (e.g. `Email Invoice Exfiltration via Inbox Query` or `Unauthorized Wire Transfer via Transaction Note`).
+   - Run in **`BASELINE`** mode: observe that the untrusted tool data triggers the secondary unauthorized tool call (`attackSuccessful: true`, `isVulnerable: true`).
+   - Run in **`SECURED`** mode: observe that SentinelAI's `SentinelAIGuardrailBridge` intercepts the indirect injection payload in the tool output stream, prevents the secondary malicious action, returns 100% containment, and logs the security findings.
+3. **Inspect Security Findings**:
    - Navigate to **Security Findings** to review threat classification, triggered rules, and remediation guidelines.
-5. **Inspect DeepEval Reliability Hub**:
-   - Review automated quality metrics (Faithfulness, Answer Relevancy, Hallucination Score, G-Eval).
-6. **Inspect OpenTelemetry Execution Traces**:
+4. **Inspect OpenTelemetry Execution Traces**:
    - Open **Execution Traces** to view the hierarchical trace waterfall, span latencies, and input/output payload states.
-7. **Run Comparison**:
+5. **Run Comparison**:
    - Navigate to **Run Comparison** to view side-by-side metric deltas and vulnerability mitigation proofs.
 
 ---
 
-## 🔒 Security Hardening Notes
+## 📄 License & Attribution
 
-- **JWT Auth**: Uses HMAC-SHA256 with 24-hour expiration and strict claim validation.
-- **Timing-Attack Protection**: Microservice secret comparison uses `hmac.compare_digest`.
-- **Sensitive Data Scrubbing**: Credentials and PII are redacted from traces and model prompts.
-- **Tool Sandbox**: Tool execution uses AST-isolated mathematical evaluation, readonly SQL constraints, and path traversal pattern blocks.
-
----
-
-## 📄 License
 SentinelAI is released under the **Apache 2.0 License**.
+
+AgentDojo benchmarks and canonical evaluation scenarios are developed by the **ETH Zurich SPY Lab** under the MIT / CC-BY-4.0 license.

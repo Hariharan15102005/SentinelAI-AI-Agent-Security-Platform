@@ -10,6 +10,7 @@ import ExecutionTraces from './pages/ExecutionTraces';
 import RunComparison from './pages/RunComparison';
 import Projects from './pages/Projects';
 import Settings from './pages/Settings';
+import AgentDojoStudio from './pages/AgentDojoStudio';
 import NotFound from './pages/NotFound';
 
 function App() {
@@ -20,6 +21,7 @@ function App() {
           <Route path="/" element={<AppLayout />}>
             <Route index element={<OverviewDashboard />} />
             <Route path="studio" element={<TestStudio />} />
+            <Route path="agentdojo" element={<AgentDojoStudio />} />
             <Route path="findings" element={<SecurityFindings />} />
             <Route path="evaluation" element={<EvaluationHub />} />
             <Route path="traces" element={<ExecutionTraces />} />

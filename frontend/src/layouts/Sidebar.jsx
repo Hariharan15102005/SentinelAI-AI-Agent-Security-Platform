@@ -10,6 +10,7 @@ import {
   FolderGit2,
   Settings,
   ShieldCheck,
+  Zap,
   X
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
@@ -21,6 +22,7 @@ export const Sidebar = () => {
     { section: "Core Platform" },
     { path: "/", label: "Overview", icon: LayoutDashboard },
     { path: "/studio", label: "Test Studio", icon: FlaskConical },
+    { path: "/agentdojo", label: "AgentDojo Benchmark", icon: Zap },
     { path: "/findings", label: "Security Findings", icon: Bug, badge: notificationCount },
     { section: "Observability & Analysis" },
     { path: "/evaluation", label: "Evaluation Hub", icon: ShieldCheck },
